@@ -1,0 +1,5 @@
+{
+  "migration_docs": "# Migration\n\nUpdated the scoped example SDK usage.",
+  "risk_report": "| File | Risk | Status |\n|---|---|---|\n| src/example.py | medium | review |",
+  "rollback_plan": "Return to rollback anchor `0000000000000000000000000000000000000000`."
+}

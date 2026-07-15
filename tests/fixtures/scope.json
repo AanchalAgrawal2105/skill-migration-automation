@@ -1,0 +1,13 @@
+{
+  "sites": [
+    {
+      "file": "src/example.py",
+      "line": 4,
+      "pattern": "legacy_call",
+      "reason": "The migration specification identifies this usage as deprecated.",
+      "risk": "medium",
+      "kind": "review"
+    }
+  ],
+  "files_to_change": ["src/example.py"]
+}

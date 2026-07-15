@@ -1,0 +1,12 @@
+{
+  "repo_id": "sample-repo",
+  "root_path": "demo/sample-repo",
+  "rollback_anchor": "0000000000000000000000000000000000000000",
+  "languages": [],
+  "manifests": {},
+  "dependencies": {},
+  "build_cmd": null,
+  "test_cmd": null,
+  "syntax_cmd": {},
+  "file_tree": ["README.md"]
+}

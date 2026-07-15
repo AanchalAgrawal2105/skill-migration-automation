@@ -1,0 +1,12 @@
+{
+  "repo_id": "sample-repo",
+  "root_path": "demo/sample-repo",
+  "rollback_anchor": "0000000000000000000000000000000000000000",
+  "languages": ["python"],
+  "manifests": {"requirements.txt": "example-sdk==0.9.0\n"},
+  "dependencies": {"example-sdk": "0.9.0"},
+  "build_cmd": null,
+  "test_cmd": "pytest -q",
+  "syntax_cmd": {"python": "python -m py_compile {file}"},
+  "file_tree": ["requirements.txt", "src/example.py", "tests/test_example.py"]
+}

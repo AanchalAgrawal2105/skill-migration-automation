@@ -1,0 +1,18 @@
+{
+  "goal": "Upgrade the example SDK",
+  "summary": "Update the declared dependency and migrate its affected usage.",
+  "steps": [
+    {
+      "order": 1,
+      "title": "Update dependency",
+      "description": "Move to the supported dependency release.",
+      "risk": "low"
+    },
+    {
+      "order": 2,
+      "title": "Migrate usage",
+      "description": "Update scoped call sites and verify behavior.",
+      "risk": "medium"
+    }
+  ]
+}

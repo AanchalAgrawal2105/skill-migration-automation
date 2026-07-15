@@ -1,0 +1,11 @@
+[
+  {
+    "file": "src/example.py",
+    "original": "def run(client):\n    return client.legacy_call()\n",
+    "modified": "def run(client):\n    return client.current_call()\n",
+    "diff": "--- a/src/example.py\n+++ b/src/example.py\n@@ -1,2 +1,2 @@\n def run(client):\n-    return client.legacy_call()\n+    return client.current_call()\n",
+    "rationale": "No repair was required; the verified candidate is retained.",
+    "syntax_ok": true,
+    "kind": "review"
+  }
+]
