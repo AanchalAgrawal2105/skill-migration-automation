@@ -6,6 +6,8 @@ import shlex
 import subprocess
 from typing import Optional, Sequence
 
+import yaml
+
 
 MAX_LOG_CHARS = 8_000
 VENDORED_DIRS = {
@@ -146,7 +148,10 @@ def check_file_syntax(run: object, relative_path: str) -> CommandResult:
     )
     if not root_value:
         raise ValueError("Repository profile does not expose a root path")
-    suffix = Path(relative_path).suffix.lower()
+    relative = Path(relative_path)
+    suffix = relative.suffix.lower()
+    if suffix in {".toml", ".yaml", ".yml"}:
+        return _check_data_file(Path(root_value), relative, suffix)
     language = {
         ".py": "python",
         ".js": "javascript",
@@ -167,3 +172,25 @@ def check_file_syntax(run: object, relative_path: str) -> CommandResult:
     return CommandRunner(Path(root_value)).run(
         template.format(file=relative_path), timeout_seconds=30
     )
+
+
+def _check_data_file(root: Path, relative: Path, suffix: str) -> CommandResult:
+    """Parse declarative files in-process without executing repository code."""
+
+    command = ["parse-config", relative.as_posix()]
+    candidate = (root.resolve() / relative).resolve()
+    if relative.is_absolute() or not is_relative_to(candidate, root):
+        return CommandResult(command, 1, "", "Config path escapes repository", False)
+    try:
+        content = candidate.read_text(encoding="utf-8")
+        if suffix == ".toml":
+            try:
+                import tomllib
+            except ImportError:  # pragma: no cover - Python 3.10 and earlier
+                import tomli as tomllib
+            tomllib.loads(content)
+        else:
+            yaml.safe_load(content)
+    except Exception as exc:
+        return CommandResult(command, 1, "", str(exc), False)
+    return CommandResult(command, 0, "", "", False)

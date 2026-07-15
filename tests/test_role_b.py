@@ -5,6 +5,7 @@ from app.schemas import FileChange, MigrationRun
 from app.stages.base import StageContext
 from app.stages.profile import run as profile
 from app.stages.verify import run as verify
+from app.verifiers import check_file_syntax
 
 
 def _init_repo(root: Path) -> None:
@@ -111,3 +112,29 @@ def test_verify_reports_failure_truthfully(tmp_path: Path) -> None:
     assert result.verify is not None
     assert result.verify.passed is False
     assert "test: failed" in result.verify.test_log
+
+
+def test_config_syntax_verifier_accepts_toml_and_yaml(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "demo"\n')
+    workflow = repo / ".github" / "workflows"
+    workflow.mkdir(parents=True)
+    (workflow / "test.yml").write_text("name: Test\njobs: {}\n")
+    _init_repo(repo)
+    run = profile(MigrationRun(), _context(repo))
+
+    assert check_file_syntax(run, "pyproject.toml").passed
+    assert check_file_syntax(run, ".github/workflows/test.yml").passed
+
+
+def test_config_syntax_verifier_rejects_invalid_toml_and_yaml(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "broken.toml").write_text("name = [\n")
+    (repo / "broken.yaml").write_text("name: [\n")
+    _init_repo(repo)
+    run = profile(MigrationRun(), _context(repo))
+
+    assert not check_file_syntax(run, "broken.toml").passed
+    assert not check_file_syntax(run, "broken.yaml").passed

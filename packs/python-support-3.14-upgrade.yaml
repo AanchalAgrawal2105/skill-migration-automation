@@ -1,0 +1,37 @@
+name: Python 3.14 support upgrade
+risk: low
+detect:
+  markers:
+    - 'requires-python = ">=3.9"'
+    - '"Programming Language :: Python :: 3.9"'
+    - "python: ['3.9', '3.10', '3.11', '3.12', '3.13']"
+    - '@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"])'
+breaking_changes:
+  - pattern: 'requires-python = ">=3.9"'
+    fix: Raise the minimum supported Python version to 3.10.
+    risk: auto
+  - pattern: '"Programming Language :: Python :: 3.9"'
+    fix: Replace the Python 3.9 classifier with Python 3.14.
+    risk: auto
+  - pattern: "python: ['3.9', '3.10', '3.11', '3.12', '3.13']"
+    fix: Test Python 3.10 through Python 3.14 in GitHub Actions.
+    risk: auto
+  - pattern: '@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"])'
+    fix: Test Python 3.10 through Python 3.14 with nox.
+    risk: auto
+steps:
+  - title: Update supported Python versions
+    details: Remove end-of-life Python 3.9 and add stable Python 3.14 consistently.
+    risk: low
+risks:
+  - Downstream users on Python 3.9 will need to remain on an older release.
+transform:
+  replacements:
+    - old: 'requires-python = ">=3.9"'
+      new: 'requires-python = ">=3.10"'
+    - old: "  \"Programming Language :: Python :: 3.9\",\n  \"Programming Language :: Python :: 3.10\",\n  \"Programming Language :: Python :: 3.11\",\n  \"Programming Language :: Python :: 3.12\",\n  \"Programming Language :: Python :: 3.13\","
+      new: "  \"Programming Language :: Python :: 3.10\",\n  \"Programming Language :: Python :: 3.11\",\n  \"Programming Language :: Python :: 3.12\",\n  \"Programming Language :: Python :: 3.13\",\n  \"Programming Language :: Python :: 3.14\","
+    - old: "python: ['3.9', '3.10', '3.11', '3.12', '3.13']"
+      new: "python: ['3.10', '3.11', '3.12', '3.13', '3.14']"
+    - old: '@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"])'
+      new: '@nox.session(python=["3.10", "3.11", "3.12", "3.13", "3.14"])'
