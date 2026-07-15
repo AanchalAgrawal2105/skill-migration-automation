@@ -1,0 +1,11 @@
+{
+  "steps": [
+    {
+      "description": "Update the deprecated configuration value",
+      "risk": "review"
+    }
+  ],
+  "candidate_literals": [
+    "mode = \"legacy\""
+  ]
+}

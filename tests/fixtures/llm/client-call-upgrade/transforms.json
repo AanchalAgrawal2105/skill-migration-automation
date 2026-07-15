@@ -1,0 +1,6 @@
+{
+  "src/client.py": {
+    "modified": "def build_client():\n    return supported_client()\n",
+    "rationale": "Replaced the deprecated constructor supplied by the migration pack."
+  }
+}
