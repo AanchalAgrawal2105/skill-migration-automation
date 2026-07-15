@@ -35,6 +35,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run validated integration fixtures instead of production stages",
     )
     parser.add_argument("--demo-mode", action="store_true", help="Enable explicit demo fallback")
+    parser.add_argument(
+        "--create-pr",
+        action="store_true",
+        help="Push the migration branch and open a GitHub PR with gh after verification passes",
+    )
+    parser.add_argument(
+        "--pr-base",
+        help="Base branch for --create-pr; defaults to the branch active before migration branch creation",
+    )
     parser.add_argument("--json", action="store_true", help="Print final run as JSON")
     return parser
 
@@ -75,6 +84,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             demo_mode=args.demo_mode,
             stage_specs=args.stages,
             fixture_dir=args.fixture_dir,
+            services={"create_pr": args.create_pr, "pr_base": args.pr_base},
             on_stage=_render_event,
         )
     except (PipelineConfigurationError, PipelineExecutionError) as exc:

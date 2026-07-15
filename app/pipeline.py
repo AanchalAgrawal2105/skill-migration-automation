@@ -33,6 +33,7 @@ DEFAULT_STAGE_SPECS = (
     "app.stages.transform:run",
     "app.stages.verify:run",
     "app.stages.report:run",
+    "app.stages.pr:run",
 )
 
 FIXTURE_STAGE_NAMES = (

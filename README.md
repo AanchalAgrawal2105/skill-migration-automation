@@ -50,6 +50,28 @@ For live mode, install the OpenAI SDK, set `OPENAI_API_KEY`, and set
 `REFER_MODEL` to an available structured-output model. Secrets must not be
 stored in packs, fixtures, or command output.
 
+## Create a migration PR
+
+The production pipeline now runs the PR stage after report generation. When
+verification passes, it creates a migration branch and commits the changed
+files. By default this stays local so demos cannot accidentally push to an
+upstream repository.
+
+To push the branch and open a real GitHub pull request, authenticate the GitHub
+CLI for the target repository and pass `--create-pr`:
+
+```bash
+python -m app.main \
+  --repo ./target-repo \
+  --goal "Rename the deprecated helper" \
+  --pack packs/rename-greeting.yaml \
+  --create-pr \
+  --pr-base main
+```
+
+The PR stage refuses to run when verification failed, when a changed file needs
+manual review, or when Git/GitHub commands fail.
+
 ## Implement a stage
 
 Each stage exports a function with this contract:
