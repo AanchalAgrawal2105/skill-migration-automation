@@ -1,0 +1,6 @@
+{
+  "settings.py": {
+    "modified": "mode = \"current\"\n",
+    "rationale": "Updated the configuration value described by the migration pack."
+  }
+}

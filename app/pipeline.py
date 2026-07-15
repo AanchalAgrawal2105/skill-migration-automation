@@ -231,12 +231,14 @@ def run_migration(
             "Choose either --fixture-dir or custom --stage values, not both"
         )
 
+    service_map = dict(services or {})
+    service_map.setdefault("state", {})
     context = StageContext(
         repo_path=resolved_repo,
         goal=goal.strip(),
         pack_path=resolved_pack,
         demo_mode=demo_mode,
-        services=dict(services or {}),
+        services=service_map,
     )
     pipeline = (
         build_fixture_pipeline(fixture_dir.expanduser().resolve())

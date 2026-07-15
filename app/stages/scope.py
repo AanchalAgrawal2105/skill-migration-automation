@@ -1,74 +1,173 @@
-"""Find pack-specified migration usage sites with deterministic search."""
+"""Deterministic, line-aware migration scoping."""
+
+from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Mapping
 
-from app.pack_loader import load_pack
-from app.schemas import MigrationRun, ScopeResult, UsageSite
+from app.contracts import (
+    ContractError,
+    build_model,
+    field_model,
+    nested_list_model,
+    profile_paths,
+    repo_root,
+    update_run,
+)
+from app.packs import KnowledgePack, coerce_pack, load_pack
+from app.schemas import MigrationRun
 from app.stages.base import StageContext
-from app.verifiers import is_probably_text
+
+
+MAX_SOURCE_BYTES = 256 * 1024
+EXCLUDED_PARTS = {".git", ".venv", "node_modules", "dist", "build"}
+
+
+class ScopeError(RuntimeError):
+    """Raised when scoped repository paths are unsafe or unreadable."""
+
+
+def scope(
+    run: Any,
+    goal: str,
+    pack: KnowledgePack | Mapping[str, Any] | None,
+    candidate_literals: list[str] | None = None,
+) -> Any:
+    """Populate ``MigrationRun.scope`` using literal patterns and profile files."""
+
+    del goal  # The goal influences the typed plan, never filesystem branching.
+    knowledge = coerce_pack(pack)
+    patterns = _patterns(run, knowledge, candidate_literals)
+    root = repo_root(run)
+    scope_model = field_model(run, "scope")
+    site_model = nested_list_model(scope_model, ("sites", "usage_sites"))
+
+    sites: list[Any] = []
+    files_to_change: set[str] = set()
+    seen: set[tuple[str, int, str]] = set()
+    for relative in sorted(set(profile_paths(run))):
+        path = _safe_profile_path(root, relative)
+        if _excluded(path, root) or not path.is_file():
+            continue
+        text = _read_eligible_text(path)
+        if text is None:
+            continue
+        normalized = path.relative_to(root).as_posix()
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            for literal, risk in patterns:
+                if literal not in line:
+                    continue
+                identity = (normalized, line_number, literal)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                sites.append(build_model(site_model, _site_values(site_model, normalized, line_number, literal, risk)))
+                files_to_change.add(normalized)
+
+    result = build_model(
+        scope_model,
+        {
+            "sites": sites,
+            "files_to_change": sorted(files_to_change),
+        },
+    )
+    return update_run(run, scope=result)
 
 
 def run(migration: MigrationRun, context: StageContext) -> MigrationRun:
-    if migration.profile is None:
-        raise ValueError("Cannot scope before repository profile exists")
-    pack = load_pack(context.pack_path)
-    patterns = _patterns_from_pack(pack)
-    if not patterns:
-        raise ValueError(
-            "No scope patterns were produced; provide a knowledge pack or an LLM scope service"
-        )
-    root = Path(migration.profile.root_path).resolve()
-    sites = []
-    files = []
-    for relative in migration.profile.file_tree:
-        path = (root / relative).resolve()
-        if root not in path.parents or not path.is_file() or not is_probably_text(path):
-            continue
-        for line_number, line in enumerate(
-            path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1
-        ):
-            for pattern in patterns:
-                if pattern not in line:
-                    continue
-                sites.append(
-                    UsageSite(
-                        file=relative,
-                        line=line_number,
-                        pattern=pattern,
-                        reason="Matched a pattern supplied by the migration specification.",
-                        risk=_risk(pack),
-                        kind="auto" if pack else "review",
-                    )
-                )
-                if relative not in files:
-                    files.append(relative)
-                break
-    if not files:
-        raise ValueError("No repository usages matched the migration specification")
-    updated = migration.model_copy(deep=True)
-    updated.scope = ScopeResult(sites=sites, files_to_change=files)
-    return updated
+    knowledge = load_pack(context.pack_path)
+    state = context.services.get("state")
+    candidates = state.get("candidate_literals", []) if isinstance(state, dict) else []
+    return scope(migration, context.goal, knowledge, list(candidates))
 
 
-def _patterns_from_pack(pack: Optional[Dict[str, Any]]) -> List[str]:
-    if not pack:
-        return []
-    patterns = []
-    detect = pack.get("detect")
-    if isinstance(detect, dict):
-        patterns.extend(str(value) for value in detect.get("markers", []) if value)
-    for change in pack.get("breaking_changes", []):
-        if isinstance(change, dict) and change.get("pattern"):
-            patterns.append(str(change["pattern"]))
-    transform = pack.get("transform")
-    if isinstance(transform, dict):
-        for replacement in transform.get("replacements", []):
-            if isinstance(replacement, dict) and replacement.get("old") is not None:
-                patterns.append(str(replacement["old"]))
-    return sorted(set(patterns))
+def _patterns(
+    run: Any,
+    pack: KnowledgePack | None,
+    candidate_literals: list[str] | None = None,
+) -> list[tuple[str, str]]:
+    ordered: dict[str, str] = {}
+    if pack:
+        for literal, risk in pack.literals_with_risk():
+            ordered[literal] = risk
+
+    candidates = candidate_literals
+    if candidates is None:
+        plan = getattr(run, "plan", None)
+        if plan is None:
+            raise ContractError("MigrationRun.plan is required before scope")
+        candidates = getattr(plan, "candidate_literals", None)
+        if candidates is None and isinstance(plan, Mapping):
+            candidates = plan.get("candidate_literals")
+        if candidates is None:
+            candidates = []
+    for value in candidates:
+        literal = str(value).strip()
+        if literal:
+            ordered.setdefault(literal, "review")
+    return list(ordered.items())
 
 
-def _risk(pack: Optional[Dict[str, Any]]) -> str:
-    value = str((pack or {}).get("risk", "medium"))
-    return value if value in {"low", "medium", "high"} else "medium"
+def _site_values(
+    model: type[Any], path: str, line: int, literal: str, risk: str
+) -> dict[str, Any]:
+    fields = getattr(model, "model_fields", {})
+    if "kind" not in fields:
+        return {"path": path, "line": line, "match": literal, "risk": risk}
+    kind = _change_kind(risk)
+    return {
+        "path": path,
+        "line": line,
+        "match": literal,
+        "reason": "Matched a literal supplied by the plan or knowledge pack.",
+        "risk": _risk_level(risk),
+        "kind": kind,
+    }
+
+
+def _change_kind(value: str) -> str:
+    value = str(value).lower()
+    if value in {"auto", "review", "manual"}:
+        return value
+    return {"low": "auto", "medium": "review", "high": "manual"}.get(
+        value, "review"
+    )
+
+
+def _risk_level(value: str) -> str:
+    value = str(value).lower()
+    if value in {"low", "medium", "high"}:
+        return value
+    return {"auto": "low", "review": "medium", "manual": "high"}.get(
+        value, "medium"
+    )
+
+
+def _safe_profile_path(root: Path, relative: str) -> Path:
+    supplied = Path(relative)
+    if supplied.is_absolute():
+        raise ScopeError(f"profile path must be relative: {relative}")
+    candidate = (root / supplied).resolve()
+    if not candidate.is_relative_to(root):
+        raise ScopeError(f"profile path escapes repository: {relative}")
+    return candidate
+
+
+def _excluded(path: Path, root: Path) -> bool:
+    relative = path.relative_to(root)
+    return any(part in EXCLUDED_PARTS for part in relative.parts)
+
+
+def _read_eligible_text(path: Path) -> str | None:
+    try:
+        if path.stat().st_size > MAX_SOURCE_BYTES:
+            return None
+        data = path.read_bytes()
+    except OSError as exc:
+        raise ScopeError(f"could not inspect {path}: {exc}") from exc
+    if b"\0" in data:
+        return None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None

@@ -131,3 +131,39 @@ def _to_text(value: object) -> str:
     if value is None:
         return ""
     return value.decode(errors="replace") if isinstance(value, bytes) else str(value)
+
+
+def check_file_syntax(run: object, relative_path: str) -> CommandResult:
+    """Role C boundary for checking one transformed file deterministically."""
+
+    profile = getattr(run, "profile", None)
+    if profile is None:
+        raise ValueError("Cannot check syntax before repository profile exists")
+    root_value = (
+        getattr(profile, "root_path", None)
+        or getattr(profile, "repo_path", None)
+        or getattr(run, "repo_path", None)
+    )
+    if not root_value:
+        raise ValueError("Repository profile does not expose a root path")
+    suffix = Path(relative_path).suffix.lower()
+    language = {
+        ".py": "python",
+        ".js": "javascript",
+        ".jsx": "javascript",
+        ".mjs": "javascript",
+        ".cjs": "javascript",
+        ".ts": "typescript",
+        ".tsx": "typescript",
+        ".go": "go",
+        ".java": "java",
+    }.get(suffix)
+    syntax_commands = getattr(profile, "syntax_cmd", {}) or {}
+    template = syntax_commands.get(language) if language else None
+    if template is None and language in VERIFIERS:
+        template = VERIFIERS[language]["syntax"]
+    if template is None:
+        raise ValueError(f"No syntax verifier registered for {relative_path}")
+    return CommandRunner(Path(root_value)).run(
+        template.format(file=relative_path), timeout_seconds=30
+    )

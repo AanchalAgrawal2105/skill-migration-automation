@@ -1,0 +1,11 @@
+{
+  "steps": [
+    {
+      "description": "Find and update deprecated client construction sites",
+      "risk": "auto"
+    }
+  ],
+  "candidate_literals": [
+    "legacy_client("
+  ]
+}

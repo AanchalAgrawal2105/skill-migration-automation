@@ -1,0 +1,10 @@
+name: config-value-upgrade
+detect:
+  markers:
+    - 'mode = "legacy"'
+breaking_changes:
+  - pattern: 'mode = "legacy"'
+    fix: Use the current configuration value.
+    risk: review
+demo:
+  fixture_id: config-value-upgrade

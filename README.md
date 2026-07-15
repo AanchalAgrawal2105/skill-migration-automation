@@ -15,6 +15,11 @@ This repository currently contains the Role A foundation:
 - scaffolds for the nine production stages;
 - contract and orchestration tests.
 
+Role B's deterministic repository profiling and verification and Role C's typed
+LLM migration engine are integrated with that foundation. Live mode uses the
+OpenAI Responses API; explicit demo mode uses checked-in structured fixtures;
+and packs with literal `transform.replacements` can run offline.
+
 ## Run the backbone
 
 The fixture mode proves stage integration without claiming that model-driven or
@@ -28,8 +33,22 @@ python -m app.main \
 ```
 
 Print machine-readable output with `--json`. Without `--fixture-dir`, the CLI
-loads the production stage modules. Pending modules fail explicitly until their
-owners implement them.
+loads the production stages.
+
+Run Role C's structured fixture mode with a pack that declares
+`demo.fixture_id`:
+
+```bash
+python -m app.main \
+  --repo ./some-repo \
+  --goal "Migrate client construction" \
+  --pack packs/client-call-upgrade.yaml \
+  --demo-mode
+```
+
+For live mode, install the OpenAI SDK, set `OPENAI_API_KEY`, and set
+`REFER_MODEL` to an available structured-output model. Secrets must not be
+stored in packs, fixtures, or command output.
 
 ## Implement a stage
 
@@ -66,4 +85,3 @@ python -m app.main --repo demo/sample-repo --goal demo \
 
 The design and one-hour delivery documents are in `00-product-brief.md` through
 `04-implementation-plan.md`.
-

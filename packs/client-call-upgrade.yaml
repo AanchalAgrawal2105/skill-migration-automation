@@ -1,0 +1,10 @@
+name: client-call-upgrade
+detect:
+  markers:
+    - legacy_client(
+breaking_changes:
+  - pattern: legacy_client(
+    fix: Replace the deprecated constructor with supported_client(
+    risk: auto
+demo:
+  fixture_id: client-call-upgrade
