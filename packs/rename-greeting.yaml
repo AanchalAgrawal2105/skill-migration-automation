@@ -1,0 +1,21 @@
+name: Rename greeting API
+risk: low
+detect:
+  markers:
+    - legacy_greet
+breaking_changes:
+  - pattern: legacy_greet
+    fix: Replace with modern_greet.
+steps:
+  - title: Locate legacy usage
+    details: Find source and tests that reference the old greeting helper.
+    risk: low
+  - title: Apply rename
+    details: Replace old helper references with the new helper name.
+    risk: low
+risks:
+  - Literal replacement can miss dynamically generated references.
+transform:
+  replacements:
+    - old: legacy_greet
+      new: modern_greet
